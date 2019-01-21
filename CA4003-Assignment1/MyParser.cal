@@ -1,0 +1,333 @@
+/*******************************
+***** SECTION 1 - OPTIONS *****
+*******************************/
+options { JAVA_UNICODE_ESCAPE = true;
+	      IGNORE_CASE =true;
+}
+/*********************************
+***** SECTION 2 - USER CODE *****
+*********************************/
+PARSER_BEGIN(MyParser)
+
+public class MyParser {
+	public static void main(String args[]) {
+		MyParser tokeniser;
+		if (args.length == 0) {
+			tokeniser = new MyParser(System.in);
+		} 
+		else if (args.length == 1) {
+			try {
+				tokeniser = new MyParser(new java.io.FileInputStream(args[0]));
+			} catch (java.io.FileNotFoundException e) {
+				System.err.println("File " + args[0] + " not found.");
+				return;
+			}
+		} else {
+			System.out.println("Parser Tokeniser: Usage is one of:");
+			System.out.println(" java MyParser < inputfile");
+			System.out.println("OR");
+			System.out.println(" java MyParser inputfile");
+			return;
+		}
+		try {
+		      tokeniser.program();
+		      System.out.println("MyParser:  Java program parsed successfully.");
+		}
+		catch (ParseException e) {
+		      System.out.println(e.getMessage());
+		      System.out.println("MyParser:  Encountered errors during parse.");
+		}
+	}
+}
+PARSER_END(MyParser)
+
+/*****************************************
+***** SECTION 3 - TOKEN DEFINITIONS *****
+*****************************************/
+
+TOKEN_MGR_DECLS :
+{
+	static int commentNesting = 0;
+}
+
+SKIP : /*** Ignoring spaces/tabs/newlines ***/
+{
+   " "
+| "\t"
+| "\n"
+| "\r"
+| "\f"
+}
+
+SKIP : /* COMMENTS */
+{
+   "/*" { commentNesting++; } : IN_COMMENT
+| <"//" (~["\n","\r"])* ("\n" | "\r" | "\r\n")>
+}
+
+<IN_COMMENT> SKIP :
+{
+   "/*" { commentNesting++; }
+|  "*/" { commentNesting--;
+if (commentNesting == 0)
+   SwitchTo(DEFAULT);
+}
+|  <~[]>
+}
+
+
+
+
+TOKEN : /* Keywords */
+{
+  < VAR: "variable" >
+| < CONST: "constant" >
+| < RETURN: "return" >
+| < INT: "integer" >
+| < BOOLEAN: "boolean" >
+| < VOID: "void" >
+| < MAIN: "main" >
+| < IF: "if" >
+| < ELSE: "else" >
+| < TRUE: "true" >
+| < FALSE: "false" >
+| < WHILE: "while" >
+| < BEGIN: "begin" >
+| < END: "end" >
+| < IS: "is" >
+| < SKIPS: "skip" >
+}
+
+TOKEN : /* Keywords and punctuation */
+{
+  < COMMA : "," >
+| < SEMIC : ";" >
+| < COLON : ":" >
+| < ASSIGN : ":=" >
+| < LBR : "(" >
+| < RBR : ")" >
+| < PLUS_SIGN : "+" >
+| < MINUS_SIGN : "-" >
+| < NOT : "~" >
+| < OR : "|" >
+| < AND : "&" >
+| < EQUAL : "=" >
+| < NOT_EQUAL : "!=" >
+| < LESS_THAN : "<" >
+| < LESS_THAN_EQUAL : "<=" >
+| < GREATER_THAN : ">" >
+| < GREATER_THAN_EQUAL : ">=" >
+}
+
+TOKEN : /* Numbers and identifiers */
+{
+< NUM: ("-")? (<INTEGER>) >
+| < #INTEGER: (<DIGIT>)+
+				| <ZERO>
+  >
+| < #DIGIT: (["1" - "9"])+ (["0" - "9"])*>
+| < #ZERO: "0" >
+| < ID: (<LETTER>)+ (<STRING>)*>
+| < #LETTER: ["a" - "z", "A" - "Z"] >
+| < #UNDERSCORE: "_" >
+| < #STRING: (<LETTER>)* (<UNDERSCORE>)* (<DIGIT>)*>
+}
+
+TOKEN : /* Anything not recognised so far */
+{
+   < OTHER : ~[] >
+}
+
+/**************************************************************************
+* SECTION 4 - THE GRAMMAR & PRODUCTION RULES - WOULD NORMALLY START HERE *
+**************************************************************************/
+
+void program() :
+{}
+{
+   decl_list()
+   function_list()
+   main()
+}
+
+
+void decl_list() :
+{}
+{
+   ( decl() <SEMIC> decl_list() )?
+}
+
+
+void decl() :
+{}
+{
+   ( var_decl() | const_decl() )
+}
+
+
+void var_decl():
+{}
+{
+   <VAR> assignment()
+}
+
+
+void const_decl():
+{}
+{
+   <CONST> assignment() <ASSIGN> expression()
+}
+
+
+void assignment():
+{}
+{
+   <ID> <COLON> type()
+}
+
+
+void function_list():
+{}
+{
+   ( function() function_list() )?
+}
+
+
+void function():
+{}
+{
+   type() <ID> <LBR> parameter_list() <RBR> <IS>
+   decl_list()
+   <BEGIN>
+   statement_block()
+   <RETURN> <LBR> (expression())? <RBR> <SEMIC>
+   <END>
+}
+
+
+void type() :
+{}
+{
+   ( <INT> | <BOOLEAN> | <VOID> )
+}
+
+
+void parameter_list():
+{}
+{
+   (nemp_parameter_list())?
+}
+
+
+void nemp_parameter_list():
+{}
+{
+   ( <ID> <COLON> type() ( <COMMA> nemp_parameter_list() )? )
+}
+
+
+void main():
+{}
+{
+   <MAIN>
+   <BEGIN>
+   decl_list()
+   statement_block()
+   <END>
+}
+
+
+void statement_block():
+{}
+{
+   ( statement() statement_block() )?
+}
+
+
+void statement():
+{}
+{
+   <ID> statement_2()
+|  <BEGIN> statement_block() <END> 
+|  <IF> condition() <BEGIN> statement_block() <END> 
+   <ELSE> <BEGIN> statement_block() <END>
+|  <WHILE> condition() <BEGIN> statement_block() <END> 
+|  <SKIPS> <SEMIC> 
+}
+
+
+void statement_2():
+{}
+{
+   <ASSIGN> expression() <SEMIC>
+|  <LBR> arg_list() <RBR> <SEMIC>
+}
+
+
+void expression():
+{}
+{
+   fragment() ( fragment_2() )? 
+|  <LBR> expression() <RBR>
+}
+
+
+void fragment_2():
+{}
+{
+   ( <PLUS_SIGN> | <MINUS_SIGN>) fragment()
+}
+
+
+void fragment():
+{}
+{
+  ( ( <MINUS_SIGN> )? <ID> (<LBR> arg_list() <RBR> )?
+|  <NUM>
+|  <TRUE>
+|  <FALSE> )
+   //{ System.out.println("inside fragment"); }
+}
+
+
+void condition():
+{}
+{
+   <NOT> condition()
+|  <LBR> condition() <RBR> ((<AND> | <OR>) condition())?
+|  cond_2() ((<AND> | <OR>) condition())?
+}
+
+
+void cond_2():
+{}
+{
+   fragment() comp_op() expression()
+}
+
+
+void comp_op():
+{}
+{
+   <EQUAL> 
+|  <NOT_EQUAL> 
+|  <LESS_THAN> 
+|  <LESS_THAN_EQUAL> 
+|  <GREATER_THAN> 
+|  <GREATER_THAN_EQUAL>
+}
+
+
+void arg_list():
+{}
+{
+   ( nemp_arg_list() )?
+}
+
+
+void nemp_arg_list():
+{}
+{
+   <ID> ( <COMMA> nemp_arg_list() )? 
+}
+
